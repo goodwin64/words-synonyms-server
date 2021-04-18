@@ -1,5 +1,7 @@
 const fetch = require('node-fetch');
 const jsDom = require('jsdom');
+const Hapi = require('@hapi/hapi');
+
 const intersection = require('./intersection');
 
 async function findConnections(word) {
@@ -24,12 +26,34 @@ async function findCommonWords(word1, word2) {
     findConnections(word1),
     findConnections(word2),
   ]);
-  return intersection(connections1, connections2);
+  return Array.from(intersection(connections1, connections2));
 }
 
-async function main() {
-  const res = await findCommonWords('домино', 'лосось')
-  console.log(res);
-}
 
-main();
+const startServer = async () => {
+
+  const server = Hapi.server({
+    port: 8000,
+    host: 'localhost'
+  });
+
+  server.route({
+    method: 'POST',
+    path: '/',
+    handler: async (req, h) => {
+      const wordsList = req.payload.words || [];
+      const commonWords = await findCommonWords(...wordsList);
+      return commonWords.join();
+    }
+  });
+
+  await server.start();
+  console.log('Server running on %s', server.info.uri);
+};
+
+process.on('unhandledRejection', (err) => {
+  console.log(err);
+  process.exit(1);
+});
+
+startServer()
